@@ -1,0 +1,59 @@
+name: REP STRIVE Runner Monitor
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check-availability:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check REP STRIVE Runner availability
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCT_URL="https://repfitness.com/products/rep-strive-series-curved-treadmill"
+          JSON_URL="${PRODUCT_URL}.js"
+          VARIANT_ID="43288603099294"
+
+          json="$(curl --fail --silent --show-error --location --max-time 20 \
+            --retry 2 --retry-delay 2 \
+            -H 'User-Agent: Mozilla/5.0' \
+            "$JSON_URL")"
+
+          available="$(printf '%s' "$json" | jq -r --argjson id "$VARIANT_ID" '
+            [ .variants[] | select(.id == $id) | .available ][0] // false
+          ')"
+
+          page="$(curl --fail --silent --show-error --location --max-time 20 \
+            --retry 2 --retry-delay 2 \
+            -H 'User-Agent: Mozilla/5.0' \
+            "$PRODUCT_URL" || true)"
+
+          sold_out_text=true
+          if ! printf '%s' "$page" | grep -Eqi 'sold out|notify me when available'; then
+            sold_out_text=false
+          fi
+
+          echo "available=$available" >> "$GITHUB_OUTPUT"
+          echo "sold_out_text=$sold_out_text" >> "$GITHUB_OUTPUT"
+          echo "variant_available=$available sold_out_text_present=$sold_out_text"
+
+      - name: Push alert via Pushover
+        if: steps.check.outputs.available == 'true' || steps.check.outputs.sold_out_text == 'false'
+        shell: bash
+        env:
+          PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
+          PUSHOVER_APP_TOKEN: ${{ secrets.PUSHOVER_APP_TOKEN }}
+        run: |
+          curl --fail --silent --show-error --max-time 20 \
+            --form-string "token=$PUSHOVER_APP_TOKEN" \
+            --form-string "user=$PUSHOVER_USER_KEY" \
+            --form-string "title=REP STRIVE Runner may be AVAILABLE" \
+            --form-string "message=REP STRIVE availability changed. Tap to check immediately." \
+            --form-string "priority=1" \
+            --form-string "url=https://repfitness.com/products/rep-strive-series-curved-treadmill?variant=43288603099294" \
+            --form-string "url_title=CHECK / BUY REP STRIVE" \
+            https://api.pushover.net/1/messages.json
