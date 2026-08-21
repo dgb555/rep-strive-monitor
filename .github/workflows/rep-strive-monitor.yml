@@ -71,7 +71,9 @@ jobs:
             --form-string "user=$PUSHOVER_USER_KEY" \
             --form-string "title=REP STRIVE Runner may be AVAILABLE" \
             --form-string "message=REP STRIVE availability changed. Tap to check immediately." \
-            --form-string "priority=1" \
+            --form-string "priority=2" \
+            --form-string "retry=30" \
+            --form-string "expire=3600" \
             --form-string "url=https://repfitness.com/products/rep-strive-series-curved-treadmill?variant=43288603099294" \
             --form-string "url_title=CHECK / BUY REP STRIVE" \
             https://api.pushover.net/1/messages.json
