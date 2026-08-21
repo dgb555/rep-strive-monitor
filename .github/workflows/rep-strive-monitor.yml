@@ -1,6 +1,9 @@
 name: REP STRIVE Runner Monitor
 
 on:
+  push:
+    paths:
+      - '.github/workflows/rep-strive-monitor.yml'
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
@@ -9,6 +12,21 @@ jobs:
   check-availability:
     runs-on: ubuntu-latest
     steps:
+      - name: Send Pushover test alert
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
+          PUSHOVER_APP_TOKEN: ${{ secrets.PUSHOVER_APP_TOKEN }}
+        run: |
+          curl --fail --silent --show-error --max-time 20 \
+            --form-string "token=$PUSHOVER_APP_TOKEN" \
+            --form-string "user=$PUSHOVER_USER_KEY" \
+            --form-string "title=TEST - REP STRIVE Runner" \
+            --form-string "message=Public 5-minute REP STRIVE monitor test succeeded." \
+            --form-string "priority=1" \
+            https://api.pushover.net/1/messages.json
+
       - name: Check REP STRIVE Runner availability
         id: check
         shell: bash
